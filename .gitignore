@@ -10,6 +10,9 @@ __pycache__/
 .probe*
 *.log
 
+# build output
+*.tgz
+
 # os junk
 .DS_Store
 Thumbs.db
