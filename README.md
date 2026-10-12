@@ -96,6 +96,8 @@ python tools/prepare.py
 
 ## 换 Logo
 
+> npm 包里只带派生出来的 `logo-384.png` 与 `icon.png`，母版 `logo.png` 在 GitHub 仓库里；要换图请用 clone 下来的源码目录。
+
 `assets/logo.png` 是母版（RGBA，带透明通道）。替换后：
 
 ```bash
