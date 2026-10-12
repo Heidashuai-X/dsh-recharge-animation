@@ -1,0 +1,71 @@
+{
+	"name": "dsh-recharge-animation",
+	"version": "0.1.0",
+	"description": "DSH 充值启动动画：侧边栏充值按钮 → 毛玻璃开场动画 → 动画结束用内置平台视图打开官方充值页。",
+	"license": "SEE LICENSE IN LICENSE",
+	"author": "Heidashuai-X",
+	"keywords": [
+		"dsh",
+		"dsh-plugin",
+		"cordis",
+		"deepseek-harness",
+		"startup-animation",
+		"recharge"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Heidashuai-X/dsh-recharge-animation.git"
+	},
+	"homepage": "https://github.com/Heidashuai-X/dsh-recharge-animation#readme",
+	"bugs": {
+		"url": "https://github.com/Heidashuai-X/dsh-recharge-animation/issues"
+	},
+	"type": "module",
+	"main": "lib/index.js",
+	"icon": "assets/icon.png",
+	"exports": {
+		".": {
+			"default": "./lib/index.js"
+		},
+		"./client": {
+			"default": "./lib/client.js"
+		},
+		"./cordis.patch.yml": "./cordis.patch.yml",
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"lib",
+		"src",
+		"tools",
+		"assets/logo-384.png",
+		"assets/icon.png",
+		"cordis.patch.yml",
+		"preview.html",
+		"README.md",
+		"CHANGELOG.md",
+		"LICENSE",
+		"PROVENANCE.md"
+	],
+	"dsh": {
+		"bundle": {
+			"patch": "./cordis.patch.yml"
+		},
+		"client": {
+			"platform": "web",
+			"immediately": true
+		}
+	},
+	"engines": {
+		"node": ">=18",
+		"dsh": ">=0.1.5-rc.1"
+	},
+	"peerDependencies": {
+		"@deepseek-ai/cordis": "^4.0.1",
+		"react": "^18.2.0"
+	},
+	"peerDependenciesMeta": {
+		"@deepseek-ai/cordis": {
+			"optional": true
+		}
+	}
+}

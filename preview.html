@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>dsh-recharge-animation · 独立预览</title>
+<style>
+	/* A mock of the DSH shell, with the same theme variables the plugin reads. */
+	:root {
+		--dsw-alias-bg-base: #0e0e12;
+		--dsw-alias-bg-layer-1: #16161c;
+		--dsw-alias-border-l1: rgba(127, 127, 127, .22);
+		--dsw-alias-brand-primary: #4d6bfe;
+		--dsw-alias-label-primary: #e6e6e6;
+		--dsw-alias-label-secondary: rgba(190, 190, 196, .92);
+		--dsw-alias-label-tertiary: rgba(127, 127, 127, .9);
+		--dsw-specific-sidebar-fill: #121218;
+	}
+	* { box-sizing: border-box; }
+	html, body { height: 100%; }
+	body {
+		margin: 0;
+		background: var(--dsw-alias-bg-base);
+		color: var(--dsw-alias-label-primary);
+		font: 400 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+	}
+	.mock { display: flex; height: 100vh; }
+	.mock-bar {
+		width: 248px; flex: none; display: flex; flex-direction: column;
+		background: var(--dsw-specific-sidebar-fill);
+		border-right: 1px solid var(--dsw-alias-border-l1);
+	}
+	.mock-brand { padding: 16px 18px; font-weight: 600; letter-spacing: .04em; }
+	.mock-nav { flex: 1; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; }
+	.mock-nav span { padding: 8px 10px; border-radius: 8px; color: var(--dsw-alias-label-secondary); }
+	.mock-nav span.on { background: rgba(127, 127, 127, .14); color: var(--dsw-alias-label-primary); }
+	.mock-foot {
+		display: flex; align-items: center; gap: 4px; padding: 10px 12px;
+		border-top: 1px solid var(--dsw-alias-border-l1);
+	}
+	.mock-gear {
+		display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px;
+		border: 0; border-radius: 10px; background: transparent;
+		color: var(--dsw-alias-label-secondary); cursor: pointer;
+		font: inherit;
+	}
+	.mock-main { flex: 1; padding: 34px 40px; overflow: auto; }
+	.mock-main h1 { margin: 0 0 6px; font-size: 20px; }
+	.mock-main p { margin: 0 0 18px; color: var(--dsw-alias-label-secondary); max-width: 62ch; }
+	.mock-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; max-width: 900px; }
+	.mock-card {
+		border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; padding: 16px;
+		background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary);
+	}
+	.account {
+		max-width: 560px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px;
+		padding: 22px; background: var(--dsw-alias-bg-layer-1);
+	}
+	.account h2 { margin: 0 0 8px; font-size: 16px; }
+	.account p { margin: 0 0 12px; color: var(--dsw-alias-label-secondary); }
+	.account .tag {
+		display: inline-block; margin: 0; padding: 4px 10px; border-radius: 999px;
+		background: rgba(77, 107, 254, .16); color: #9db0ff;
+		font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px;
+	}
+	.note {
+		position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 14px;
+		background: rgba(0, 0, 0, .5); color: var(--dsw-alias-label-tertiary);
+		font-size: 12px; text-align: center;
+	}
+</style>
+</head>
+<body>
+	<div class="mock">
+		<aside class="mock-bar">
+			<div class="mock-brand">DeepSeek Harness</div>
+			<nav class="mock-nav">
+				<span class="on">对话</span>
+				<span>任务板</span>
+				<span>技能</span>
+				<span>档案</span>
+			</nav>
+			<div class="mock-foot" id="seat-footer">
+				<button type="button" class="mock-gear" title="设置（宿主自带，此处仅占位）">⚙ 设置</button>
+			</div>
+		</aside>
+		<main class="mock-main" id="mock-main">
+			<h1>一个假的 DSH 主区</h1>
+			<p>它的唯一用途是给毛玻璃当背景：点侧边栏底部的「充值」，遮罩会把这整页糊掉，再淡出打开官方充值页。</p>
+			<div class="mock-cards">
+				<div class="mock-card">背景卡片一<br />blur(72px) saturate(1.9) 会把这里糊成一片柔光。</div>
+				<div class="mock-card">背景卡片二<br />插件跟随 --dsw-* 变量，亮暗主题都能用。</div>
+				<div class="mock-card">背景卡片三<br />进度条是「真实信号 + 时间兜底」的混合语义。</div>
+			</div>
+		</main>
+	</div>
+	<div id="seat-overlay"></div>
+	<div class="note" id="boot-note">正在加载 React 与插件…</div>
+
+	<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+	<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+	<script>
+		(function () {
+			var footer = document.getElementById("seat-footer");
+			var overlay = document.getElementById("seat-overlay");
+			var main = document.getElementById("mock-main");
+			var note = document.getElementById("boot-note");
+
+			// Stands in for the official top-up page the plugin opens in a new window.
+			var lastHandover = "(还没点)";
+			function showTopUp() {
+				main.innerHTML = "";
+				var box = document.createElement("div");
+				box.className = "account";
+				box.innerHTML =
+					"<h2>官方充值页（替身）</h2>" +
+					"<p>真实环境里动画收尾会打开 <strong>platform.deepseek.com/top_up</strong> 的新窗口；预览页不跳转，只把这次交接记下来。</p>" +
+					"<p class=\"tag\">" + lastHandover + "</p>";
+				main.appendChild(box);
+			}
+
+			// The real build hands the URL to the OS browser; a preview tab should not
+			// spawn windows, so the hand-over is recorded instead.
+			window.open = function (url) {
+				lastHandover = "window.open(" + JSON.stringify(url) + ", \"_blank\")";
+				note.textContent = "插件请求打开 " + url + "（预览页已拦截）";
+				showTopUp();
+				return { closed: false };
+			};
+
+			function hostFor(name) {
+				if (name === "sidebar.footer.action") return footer;
+				if (name === "shell.overlay") return overlay;
+				return null;
+			}
+
+			if (!window.React || !window.ReactDOM) {
+				note.textContent = "React 未能从 unpkg 载入（离线？），预览不可用。";
+				return;
+			}
+
+			window.__ModuleLoader__ = {
+				load: function (definition) {
+					var mod = definition.factory(function () { return window.React; });
+					var ctx = {
+						slots: {
+							inject: function (name, cb) {
+								if (!hostFor(name)) return function () {};
+								cb();
+								return function () {};
+							},
+							register: function (registration, Component) {
+								var host = hostFor(registration.name);
+								if (!host) return function () {};
+								var mount = document.createElement("div");
+								mount.style.display = "contents";
+								host.appendChild(mount);
+								var root = window.ReactDOM.createRoot(mount);
+								root.render(window.React.createElement(Component, { wide: true }));
+								return function () {
+									try { root.unmount(); } catch (error) { /* already gone */ }
+									mount.remove();
+								};
+							}
+						},
+						effect: function (cb) { try { cb(); } catch (error) { /* ignore */ } }
+					};
+					mod.apply(ctx);
+					note.textContent = "插件已加载 —— 点侧边栏底部的「充值」看效果，可反复点。";
+				}
+			};
+		})();
+	</script>
+	<script src="./lib/client.js"></script>
+</body>
+</html>

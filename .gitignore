@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# python build helpers
+__pycache__/
+*.pyc
+
+# local scratch
+.asset-check.png
+.probe*
+*.log
+
+# os junk
+.DS_Store
+Thumbs.db
+desktop.ini

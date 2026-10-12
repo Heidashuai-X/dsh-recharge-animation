@@ -1,0 +1,11 @@
+# Bundle patch for dsh-recharge-animation.
+#
+# Install into a profile:
+#     dsh plugin --profile desktop add link:/path/to/dsh-recharge-animation
+#
+# This file is the only thing DSH reads to load the package; the host half lives
+# in lib/index.js and the browser half is advertised by package.json `dsh.client`.
+
+- insert:
+  - id: dsh-recharge-animation
+    name: dsh-recharge-animation
