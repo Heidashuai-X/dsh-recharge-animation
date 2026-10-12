@@ -28,7 +28,8 @@
 
 ```bash
 git clone https://github.com/Heidashuai-X/dsh-recharge-animation.git
-dsh plugin --profile desktop add link:/path/to/dsh-recharge-animation
+dsh plugin --profile desktop add "link:<你 clone 下来的绝对路径>"
+# Windows 例子：dsh plugin --profile desktop add link:D:/code/dsh-recharge-animation
 ```
 
 也可以省掉手动 clone，用 pnpm 的 git 简写（这条路本机没实测过，不通就用上面的 `link:`）：
