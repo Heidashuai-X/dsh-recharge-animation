@@ -2,6 +2,8 @@
 
 **点侧边栏的「充值」，看一段毛玻璃开场，动画还没播完，官方充值页已经在下面打开了。**
 
+👉 **[下载最新版](https://github.com/Heidashuai-X/dsh-recharge-animation/releases/latest)** · 一条命令安装见下方「[下载与安装](#下载与安装)」。
+
 ## 极简介绍
 
 - **是什么**：给 DSH 侧边栏加一个「充值」入口，点它播一段满屏毛玻璃的开场动画（品牌 Logo + 真实进度条，1.8 秒），动画收尾时用 DSH **内置的平台视图**打开官方充值页 `platform.deepseek.com/top_up`。
@@ -22,9 +24,19 @@
 
 视图默认从窗口顶部**下移 40px**（配置项 `platformTop`），因为原生子视图永远盖在页面 DOM 之上、无法被样式压到下面去。留出这条带子，返回栏就不会压住桌面端的窗口按钮和工具栏，那条带子里的东西也点不到，不会误触。觉得仍然挤或留白太多，直接改 `platformTop` 即可。
 
-## 安装
+## 下载与安装
 
-克隆仓库，再让 `link:` 指向克隆下来的目录：
+三种拿法，任选其一：
+
+**① 直接从 GitHub 安装**（最省事）：
+
+```bash
+dsh plugin --profile desktop add github:Heidashuai-X/dsh-recharge-animation
+```
+
+> 这条路走 pnpm 的 git 简写，本机没实测过；不通就用 ② 或 ③。
+
+**② 克隆源码再 link**（要改代码就用这个，改完重启即生效）：
 
 ```bash
 git clone https://github.com/Heidashuai-X/dsh-recharge-animation.git
@@ -32,11 +44,7 @@ dsh plugin --profile desktop add "link:<你 clone 下来的绝对路径>"
 # Windows 例子：dsh plugin --profile desktop add link:D:/code/dsh-recharge-animation
 ```
 
-也可以省掉手动 clone，用 pnpm 的 git 简写（这条路本机没实测过，不通就用上面的 `link:`）：
-
-```bash
-dsh plugin --profile desktop add github:Heidashuai-X/dsh-recharge-animation
-```
+**③ 下载 zip**：到 [Releases](https://github.com/Heidashuai-X/dsh-recharge-animation/releases/latest) 页，在 **Assets** 里点 `Source code (zip)` 或 `Source code (tar.gz)`，解压后按 ② 的 `link:` 方式安装（`link:` 指向解压出来的目录）。
 
 装完**完全退出 DSH 再启动**。`cordis.patch.yml` 是唯一需要 DSH 读取的接入文件，浏览器半部由 `package.json` 的 `dsh.client` 清单声明。
 
