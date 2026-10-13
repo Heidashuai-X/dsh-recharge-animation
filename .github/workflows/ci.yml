@@ -39,6 +39,12 @@ jobs:
             exit 1
           fi
 
+      # @deepseek-ai/schemastery 是宿主提供的可选依赖：lib/index.js 用它构造
+      # Config，解析不到时按设计导出 undefined。装上它，冒烟测试里的 schema
+      # 断言才是真检查（裸检出没有 DSH 环境时只会打印一条 note）。
+      - name: Provide the host schema library
+        run: npm install --no-save --no-package-lock @deepseek-ai/schemastery@^3
+
       - name: Host smoke tests
         run: npm test
 
@@ -78,9 +84,14 @@ jobs:
           set -euo pipefail
           asset="$(ls dsh-recharge-animation-*.tgz | head -n 1)"
           echo "asset: $asset ($(stat -c%s "$asset") bytes)"
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$asset" --clobber
-          else
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # 首次发布：由 CI 建 Release 并挂上它自己打的包。
             gh release create "$GITHUB_REF_NAME" "$asset" \
               --title "$GITHUB_REF_NAME" --generate-notes
+          elif gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name' | grep -qx "$asset"; then
+            # 资产已经在（例如手工发布时传过）：保留现有字节流，不覆盖 ——
+            # 否则同一个 tag 会因为两次打包而出现两个 sha。
+            echo "release $GITHUB_REF_NAME 已带 $asset，保留现有资产不覆盖"
+          else
+            gh release upload "$GITHUB_REF_NAME" "$asset"
           fi

@@ -26,7 +26,17 @@ process.env.DSH_HOME = home
 const mod = await import(ENTRY)
 assert.equal(typeof mod.apply, 'function')
 assert.deepEqual(mod.inject, ['webServer'])
-assert.ok(mod.Config, 'Config schema expected')
+// Config is built from the host's @deepseek-ai/schemastery. That package is an
+// optional dependency of this bundle: when no base can supply it, lib/index.js
+// exports undefined on purpose so the plugin still loads. CI installs it (see
+// .github/workflows/ci.yml), so the assertions below are real there; a bare
+// checkout without a DSH install just prints the note.
+if (mod.Config === undefined) {
+	console.log('  note  @deepseek-ai/schemastery 不可解析，Config 按设计降级为 undefined（跳过 schema 断言）')
+} else {
+	assert.equal(typeof mod.Config, 'function', 'Config should be a callable schemastery schema')
+	assert.deepEqual(mod.Config({}), { enabled: true }, 'Config defaults should be { enabled: true }')
+}
 
 const routes = new Map()
 const ctx = {
