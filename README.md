@@ -1,6 +1,6 @@
 # dsh-recharge-animation
 
-**点侧边栏的「充值」，看一段毛玻璃开场，动画还没播完，官方充值页已经在下面打开了。**
+**点侧边栏的「充值」，看一段毛玻璃开场，动画还没播完，官方充值页已经在下面打开了。** 图标、音效、文案都能右键改。
 
 👉 **[下载最新版](https://github.com/Heidashuai-X/dsh-recharge-animation/releases/latest)** · 一条命令安装见下方「[下载与安装](#下载与安装)」。
 
@@ -8,7 +8,7 @@
 
 - **是什么**：给 DSH 侧边栏加一个「充值」入口，点它播一段满屏毛玻璃的开场动画（品牌 Logo + 真实进度条，1.8 秒），动画收尾时用 DSH **内置的平台视图**打开官方充值页 `platform.deepseek.com/top_up`。
 - **为什么这样做**：插件只负责「开场」和「引路」，不自己画充值面板、也不去改 DSH 自带界面。钱、金额、登录态全在官方页面上走，不经过插件。
-- **怎么用**：一条命令安装 + 完全重启 DSH；不动安装包，卸载同样是 `dsh plugin ... remove` 一条命令。配置（时长、可跳过、是否自动打开充值页等）在插件管理器里改。
+- **怎么用**：一条命令安装 + 完全重启 DSH；不动安装包，卸载同样是 `dsh plugin ... remove` 一条命令。**右键**侧边栏的「充值」按钮打开设置面板 —— 换开场图标、配三段音效、改按钮文案、调动画参数都在那里；插件管理器里只剩一个总开关 `enabled`。
 - **和 `dsh-startup-animation`**：同一套座位与动画写法，两个插件可以共存。
 
 ## 行为
@@ -16,13 +16,14 @@
 1. 侧边栏底部、设置按钮旁边多出一个「充值」入口（钱包图标 + 文字，窄栏自动收成图标）。
 2. 点击后播放一次开场动画：
    - 满屏毛玻璃：`backdrop-filter: blur(72px) saturate(1.9)`，叠一层品牌色径向光晕，跟随 DSH 亮/暗主题（`color-mix` + `--dsw-*` 变量）。
-   - 中央一块玻璃卡片，里面是品牌 Logo 与进度条。
+   - 中央一块玻璃卡片，里面是开场图标与进度条（图标可以在设置面板里换成自己的图）。
    - 进度条是**混合语义**：四个真实信号（插件配置路由、Logo 解码、交接目标就绪、字体就绪）把进度顶到 96%，时间兜底同时提供下限与上限，最后补到 100% —— 加载慢时不会假满，加载快时也不会一闪而过。
    - 可跳过：点遮罩、`Esc`、空格、回车。
 3. 进度到 100% 时，**在玻璃还盖着画面的时候**就切到内置平台视图打开充值页，随后玻璃淡出 —— 用户看到的正好是支付表单。
 4. 随时可以再点一次入口重播；在平台视图里点顶部「← 返回」交还视图。
+5. **右键**入口按钮打开设置面板（左键仍然是播放动画）：图标、音效、文案、动画参数、预设都在这块面板里改，详见下方「[设置面板](#设置面板)」。
 
-视图默认从窗口顶部**下移 40px**（配置项 `platformTop`），因为原生子视图永远盖在页面 DOM 之上、无法被样式压到下面去。留出这条带子，返回栏就不会压住桌面端的窗口按钮和工具栏，那条带子里的东西也点不到，不会误触。觉得仍然挤或留白太多，直接改 `platformTop` 即可。
+视图默认从窗口顶部**下移 40px**（设置面板里的「顶部偏移」），因为原生子视图永远盖在页面 DOM 之上、无法被样式压到下面去。留出这条带子，返回栏就不会压住桌面端的窗口按钮和工具栏，那条带子里的东西也点不到，不会误触。觉得仍然挤或留白太多，直接改这个值即可。
 
 ## 下载与安装
 
@@ -56,19 +57,62 @@ dsh plugin --profile desktop remove dsh-recharge-animation
 
 ## 配置
 
-配置直接来自插件自己的 Config Schema，在**插件管理器**里改即可（Host 半 `lib/index.js` 的 `Config`）：
+配置分两处，各管一段。
+
+**① 插件管理器**（来自 Host 半 `lib/index.js` 的 Config Schema）：
 
 | 键 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `enabled` | boolean | `true` | 总开关：关闭后侧边栏不显示充值入口。 |
-| `duration` | number | `1800` | 最长显示时长（毫秒），到点必定收场。 |
-| `minDuration` | number | `1100` | 最短显示时长（毫秒），避免一闪而过。 |
-| `skippable` | boolean | `true` | 是否允许点击/按键跳过。 |
-| `progressMode` | `real` \| `fixed` | `real` | `real` 跟进真实加载节点；`fixed` 纯按时间推进。 |
-| `openTopUp` | boolean | `true` | 动画结束后是否自动打开官方充值页（`platform.deepseek.com/top_up`）。 |
-| `platformTop` | number | `40` | 内置视图距窗口顶部的像素距离（0–320）。调大可把整个界面下移，避开桌面端标题栏与工具栏。 |
+| `enabled` | boolean | `true` | 总开关：关闭后侧边栏不显示充值入口，设置面板也随之打不开。 |
 
-Host 半把生效配置发布在 `GET /recharge-animation/config`；浏览器半读不到时使用内置默认值，**永远不会因为路由不可达而卡住开场**。
+**② 设置面板**（右键入口按钮唤出）：动画参数、图标、音效、文案、预设全在这里。面板里的改动**先落在草稿上**，点底栏「保存」才写入磁盘；「取消」丢弃草稿，「恢复默认」把当前草稿重置回默认值。
+
+> 0.1.x 的 6 个配置项（`duration`、`minDuration`、`skippable`、`progressMode`、`openTopUp`、`platformTop`）已搬进设置面板的「动画参数」分组；升级后第一次读取时会用旧配置当初始值，行为不会突变。
+
+## 设置面板
+
+右键侧边栏的「充值」按钮打开（左键仍然是播放动画）。面板挂在 `shell.overlay` 上，深蓝实心按钮的配色照抄 [`dsh-whale-widget`](https://www.npmjs.com/package/dsh-whale-widget) 的设置面板。
+
+| 分组 | 能改什么 |
+| --- | --- |
+| 全局静音 | 一键关掉全部音效；开启后「试听」同步禁用。 |
+| 图标 | 开场卡片中央的那张大图；没导入时用包内置的 Logo。 |
+| 音效 | 三个槽位：**开场**一声、**背景循环**（收尾淡出、跳过即截断）、**收尾**一声；每个槽位独立音量（0–100）与试听。 |
+| 文案 | 侧栏按钮名、「点击跳过」提示。 |
+| 动画参数 | 总时长、最短时长、顶部偏移、进度模式、可跳过、结束后是否打开充值页。 |
+| 资源管理 | 已导入素材的缩略图、文件名、体积与总计，逐项可删。 |
+| 预设 | 图标 + 三个音效 + 三个音量打包成一套：可另存、切换（立即生效）、重命名、删除。 |
+
+**导入素材有三种方式**：
+
+1. **文件选择器**；
+2. **拖进面板** —— 按文件类型自动分派到图标库或音频库；面板只在打开时接管拖放，且不让事件冒泡，免得跟聊天输入框的文件拖放进附件行为打架；
+3. **URL 导入** —— 由 Host 半去下载（浏览器侧 `fetch` 会因为图床不发 CORS 头而必然失败）。
+
+格式与体积由 Host 半按**文件魔数**判定，不看扩展名：图标 ≤ 4MB（png / jpg / webp / gif），音频 ≤ 8MB（mp3 / wav / ogg / m4a）。URL 导入另有四道闸：只允许 `http` / `https`、以响应 `Content-Type` 判类型、体积上限、15 秒超时 + 5 次重定向上限。
+
+### 数据放哪
+
+```
+$DSH_HOME/recharge-animation/
+├── config.json     # 文案、行为参数、静音、素材索引、预设
+├── icons/<id>.<ext>
+└── audio/<id>.<ext>
+```
+
+`$DSH_HOME` 默认 `~/.dsh`（取不到时依次退到 `$DSH_PROFILE_DIR`、当前工作目录）。整个目录删掉等于恢复出厂。
+
+### Host 半的路由
+
+| 方法 | 路径 | 作用 |
+| --- | --- | --- |
+| `GET` / `PUT` | `/recharge-animation/config` | 读 / 写 `config.json`；写入时夹紧数值、丢弃索引里不存在的素材引用。 |
+| `GET` | `/recharge-animation/assets?kind=&id=` | 取素材（`Cache-Control: immutable`）。 |
+| `POST` | `/recharge-animation/assets?kind=&name=` | 上传素材（raw 二进制 body，不走 base64）。 |
+| `DELETE` | `/recharge-animation/assets?kind=&id=` | 删素材，同时清掉预设与图标里对它的引用。 |
+| `POST` | `/recharge-animation/import-url` | 由 Host 下载远端文件并入库。 |
+
+浏览器半读不到配置时使用内置默认值，**永远不会因为路由不可达而卡住开场**。
 
 ## 包结构
 
@@ -77,14 +121,14 @@ dsh-recharge-animation/
 ├── cordis.patch.yml         # DSH 加载入口（insert 一条 bundle 记录）
 ├── package.json             # dsh.bundle.patch + dsh.client 清单
 ├── lib/
-│   ├── index.js             # Host 半：Config Schema + 配置路由
+│   ├── index.js             # Host 半：Config + 配置 / 素材 / URL 导入路由
 │   └── client.js            # 浏览器半（由 src/client.template.js 生成）
-├── src/client.template.js   # 浏览器半的可读源码
+├── src/client.template.js   # 浏览器半的可读源码（入口按钮、动画、设置面板）
 ├── tools/
 │   ├── prepare.py           # 把 Logo 内联成 data URI，生成 lib/client.js
 │   └── build-assets.py      # 从 assets/logo.png 派生 384px 图标
 ├── assets/                  # logo.png（母版）+ logo-384.png + icon.png
-├── preview.html             # 脱离 DSH 的独立预览页
+├── preview.html             # 脱离 DSH 的独立预览页（自带假 Host，面板也能试）
 └── README.md
 ```
 
@@ -95,6 +139,8 @@ python tools/prepare.py
 ```
 
 ## 换 Logo
+
+**只影响自己这台机器**：右键「充值」→ 设置面板 → 图标 → 导入即可，不用改代码、也不用重启。下面这条是**改内置默认图**（跟着包发布出去、给别人用）：
 
 > npm 包里只带派生出来的 `logo-384.png` 与 `icon.png`，母版 `logo.png` 在 GitHub 仓库里；要换图请用 clone 下来的源码目录。
 

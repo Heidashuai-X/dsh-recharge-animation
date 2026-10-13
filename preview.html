@@ -86,7 +86,7 @@
 		</aside>
 		<main class="mock-main" id="mock-main">
 			<h1>一个假的 DSH 主区</h1>
-			<p>它的唯一用途是给毛玻璃当背景：点侧边栏底部的「充值」，遮罩会把这整页糊掉，再淡出打开官方充值页。</p>
+			<p>它的唯一用途是给毛玻璃当背景：点侧边栏底部的「充值」，遮罩会把这整页糊掉，再淡出打开官方充值页；<strong>右键那个按钮</strong>会打开设置面板（图标、音效、文案、预设）。</p>
 			<div class="mock-cards">
 				<div class="mock-card">背景卡片一<br />blur(72px) saturate(1.9) 会把这里糊成一片柔光。</div>
 				<div class="mock-card">背景卡片二<br />插件跟随 --dsw-* 变量，亮暗主题都能用。</div>
@@ -128,6 +128,175 @@
 				return { closed: false };
 			};
 
+			// --- a fake Host half ------------------------------------------------
+			// The plugin talks to /recharge-animation/* exactly as it does inside DSH.
+			// Here those routes are answered from memory, so the panel, the asset
+			// service and the show can be exercised without starting the desktop app.
+			// Two deliberate differences from the real Host, because a file:// page
+			// cannot do better: uploaded files become blob URLs, and remote URLs
+			// cannot be fetched. Everything else follows the same contract.
+			var ROUTE = "/recharge-animation";
+			var LIMITS = { icon: 4 * 1024 * 1024, audio: 8 * 1024 * 1024 };
+			var FORMATS = { icon: "png / jpg / webp / gif", audio: "mp3 / wav / ogg / m4a" };
+			var STORE_KEY = "dsh-recharge-animation-preview";
+			var SEED = {
+				version: 1,
+				muted: false,
+				labels: { button: "充值", skipHint: "点击跳过" },
+				behavior: { duration: 1800, minDuration: 1100, skippable: true, progressMode: "real", openTopUp: true, platformTop: 40 },
+				assets: { icons: [], audio: [] },
+				presets: [{ id: "p-default", name: "默认", iconId: null, slots: { intro: null, bgm: null, outro: null }, volumes: { intro: 100, bgm: 60, outro: 100 } }],
+				activePresetId: "p-default"
+			};
+			var config = readConfig();
+
+			/** Blob URLs do not survive a reload, so the asset index is session-only. */
+			function readConfig() {
+				var fresh = JSON.parse(JSON.stringify(SEED));
+				var raw = null;
+				try { raw = localStorage.getItem(STORE_KEY); } catch (error) { raw = null; }
+				if (!raw) return fresh;
+				try {
+					var parsed = JSON.parse(raw);
+					if (!parsed || typeof parsed !== "object") return fresh;
+					parsed.assets = { icons: [], audio: [] };
+					parsed.presets = parsed.presets && parsed.presets.length > 0 ? parsed.presets : fresh.presets;
+					for (var i = 0; i < parsed.presets.length; i++) {
+						parsed.presets[i].iconId = null;
+						parsed.presets[i].slots = { intro: null, bgm: null, outro: null };
+					}
+					return parsed;
+				} catch (error) { return fresh; }
+			}
+
+			function writeConfig() {
+				try { localStorage.setItem(STORE_KEY, JSON.stringify(config)); } catch (error) { /* full or blocked */ }
+			}
+
+			function jsonResponse(body, status) {
+				return new Response(JSON.stringify(body), {
+					status: status || 200,
+					headers: { "Content-Type": "application/json; charset=utf-8" }
+				});
+			}
+
+			function hostPayload() {
+				return {
+					ok: true,
+					enabled: true,
+					config: config,
+					limits: LIMITS,
+					formats: FORMATS,
+					labelMax: { button: 24, skipHint: 40 },
+					presetNameMax: 24,
+					assetNameMax: 80
+				};
+			}
+
+			function listKeyOf(kind) { return kind === "audio" ? "audio" : "icons"; }
+
+			function storeAsset(kind, blob, name, done) {
+				var id = (kind === "audio" ? "a-" : "i-") + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6);
+				done({
+					id: id,
+					file: id + (/\.([a-z0-9]+)$/i.exec(name) ? "." + /\.([a-z0-9]+)$/i.exec(name)[1].toLowerCase() : ""),
+					bytes: blob.size,
+					name: name,
+					ms: Date.now(),
+					url: URL.createObjectURL(blob)
+				});
+			}
+
+			function readJsonBody(init) {
+				if (!init || typeof init.body !== "string") return Promise.resolve(null);
+				try { return Promise.resolve(JSON.parse(init.body)); } catch (error) { return Promise.resolve(null); }
+			}
+
+			/** The fake router: same paths, same shapes, same error strings. */
+			function handleHost(path, query, method, init) {
+				return new Promise(function (resolve) {
+					if (path === "/config") {
+						if (method === "GET") { resolve(jsonResponse(hostPayload())); return; }
+						readJsonBody(init).then(function (body) {
+							var next = body && body.config ? body.config : body;
+							if (next && typeof next === "object") {
+								if (next.labels) config.labels = next.labels;
+								if (next.behavior) config.behavior = next.behavior;
+								if (next.presets && next.presets.length > 0) config.presets = next.presets;
+								if (next.activePresetId) config.activePresetId = next.activePresetId;
+								config.muted = next.muted === true;
+							}
+							writeConfig();
+							resolve(jsonResponse(hostPayload()));
+						});
+						return;
+					}
+					if (path === "/assets") {
+						var kind = query.get("kind") === "audio" ? "audio" : "icon";
+						var list = config.assets[listKeyOf(kind)];
+						if (method === "DELETE") {
+							var id = query.get("id");
+							var kept = [];
+							for (var i = 0; i < list.length; i++) {
+								if (list[i].id !== id) kept.push(list[i]);
+							}
+							config.assets[listKeyOf(kind)] = kept;
+							for (var p = 0; p < config.presets.length; p++) {
+								if (config.presets[p].iconId === id) config.presets[p].iconId = null;
+								if (config.presets[p].slots.intro === id) config.presets[p].slots.intro = null;
+								if (config.presets[p].slots.bgm === id) config.presets[p].slots.bgm = null;
+								if (config.presets[p].slots.outro === id) config.presets[p].slots.outro = null;
+							}
+							writeConfig();
+							resolve(jsonResponse(hostPayload()));
+							return;
+						}
+						if (method === "POST") {
+							var posted = init && init.body;
+							var name = decodeURIComponent(query.get("name") || "asset");
+							var blob = posted instanceof Blob ? posted : new Blob([posted || ""], { type: "application/octet-stream" });
+							if (blob.size > LIMITS[kind]) {
+								resolve(jsonResponse({
+									error: (kind === "icon" ? "图片" : "音频") + "超过上限 " + (LIMITS[kind] / 1024 / 1024) + "MB（当前 " + (blob.size / 1024 / 1024).toFixed(1) + "MB）"
+								}, 413));
+								return;
+							}
+							storeAsset(kind, blob, name, function (entry) {
+								config.assets[listKeyOf(kind)].push(entry);
+								writeConfig();
+								resolve(jsonResponse(hostPayload(), 201));
+							});
+							return;
+						}
+						resolve(jsonResponse({ error: "不支持的方法" }, 405));
+						return;
+					}
+					if (path === "/import-url" && method === "POST") {
+						readJsonBody(init).then(function () {
+							resolve(jsonResponse({ error: "预览页跨不过 CORS：请在真机里用 URL 导入，这里请用「选择文件」或拖拽" }, 400));
+						});
+						return;
+					}
+					resolve(jsonResponse({ error: "没有这条路由" }, 404));
+				});
+			}
+
+			var realFetch = typeof window.fetch === "function" ? window.fetch.bind(window) : null;
+			window.fetch = function (input, init) {
+				var raw = typeof input === "string" ? input : (input && input.url ? input.url : String(input));
+				var parsed = null;
+				try { parsed = new URL(raw, location.href); } catch (error) { parsed = null; }
+				// On file:// a rooted path resolves to "/D:/…", so the route is looked
+				// up inside the path instead of matched as a prefix.
+				var at = parsed === null ? -1 : parsed.pathname.indexOf(ROUTE);
+				if (at < 0) {
+					if (realFetch !== null) return realFetch(input, init);
+					return Promise.reject(new Error("fetch is unavailable"));
+				}
+				var method = ((init && init.method) || "GET").toUpperCase();
+				return handleHost(parsed.pathname.slice(at + ROUTE.length), parsed.searchParams, method, init);
+			};
+
 			function hostFor(name) {
 				if (name === "sidebar.footer.action") return footer;
 				if (name === "shell.overlay") return overlay;
@@ -166,7 +335,17 @@
 						effect: function (cb) { try { cb(); } catch (error) { /* ignore */ } }
 					};
 					mod.apply(ctx);
-					note.textContent = "插件已加载 —— 点侧边栏底部的「充值」看效果，可反复点。";
+					// Handy for screenshots and for CI: open the settings panel on load.
+					if (/[?&]panel=1/.test(location.search)) {
+						setTimeout(function () {
+							// The seat already holds the shell's own gear button, so the
+							// plugin's entry is the last one in it.
+							var buttons = footer.querySelectorAll("button");
+							var trigger = buttons.length > 0 ? buttons[buttons.length - 1] : null;
+							if (trigger) trigger.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+						}, 800);
+					}
+					note.textContent = "插件已加载 —— 点侧边栏底部的「充值」看动画，右键它打开设置面板（预览里的素材只在本次会话有效）。";
 				}
 			};
 		})();
