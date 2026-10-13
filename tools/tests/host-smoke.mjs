@@ -222,6 +222,30 @@ await step('PUT config clamps numbers and keeps the asset index', async () => {
 	assert.equal(saved.assets.audio.length, 1)
 })
 
+await step('PUT config can clear the in-animation text', async () => {
+	const current = (await getConfig()).config
+
+	// An explicit empty string means "show no text inside the animation", so it
+	// has to survive the round trip instead of falling back to the old value.
+	const cleared = JSON.parse(JSON.stringify(current))
+	cleared.labels.skipHint = ''
+	const result = await putConfig(cleared)
+	assert.equal(result.status, 200)
+	assert.equal(result.body.config.labels.skipHint, '', 'an empty hint must survive a save')
+
+	// A payload that simply omits the field keeps what is stored: only the panel
+	// emptying the box sends "".
+	const omitted = JSON.parse(JSON.stringify(current))
+	delete omitted.labels.skipHint
+	const kept = await putConfig(omitted)
+	assert.equal(kept.body.config.labels.skipHint, '', 'omitting the field keeps the stored value')
+
+	const back = JSON.parse(JSON.stringify(current))
+	back.labels.skipHint = '点我跳过'
+	const restored = await putConfig(back)
+	assert.equal(restored.body.config.labels.skipHint, '点我跳过')
+})
+
 await step('PUT config cannot add asset entries that do not exist', async () => {
 	const current = (await getConfig()).config
 	const next = JSON.parse(JSON.stringify(current))

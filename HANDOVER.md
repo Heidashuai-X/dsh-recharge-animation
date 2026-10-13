@@ -10,10 +10,11 @@
 | 项目 | 值 |
 |---|---|
 | 包名 | `dsh-recharge-animation` |
-| 当前版本 | `0.2.1`（`package.json:3`） |
+| 当前版本 | `0.2.2`（`package.json:3`） |
 | 这是什么 | DSH 侧边栏「充值」按钮 + 满屏毛玻璃开场动画 + 动画结束用宿主原生视图打开官方充值页；**0.2.0 新增右键唤出的配置面板**（图标 / 三槽位音效 / 文案 / 行为参数 / 素材管理 / 多套预设 / 全局静音） |
 | 0.2.1 修了什么 | 路由注册失败改成 warning 日志（原为静默 `catch {}`）、`readBody`/`readJson` 的 400 语义、控制面请求全部加超时（开场 1.5s / 保存 20s / 上传 60s / 删除 10s / 导入 30s）、URL 导入失败原因归一（`describeFetchError`）、回归测试从 `.backup/` 迁进 `tools/tests/`（详见 §7.3 与 `CHANGELOG.md` 的 0.2.1 节） |
-| 代码规模 | `lib/index.js` 817 行（Host 半）、`src/client.template.js` 1935 行（Client 半源码）、`lib/client.js` 251167 字节（生成物）；`tools/tests/*.mjs` 共 508 行 |
+| 0.2.2 修了什么 | **动画里那行文字一次都没显示过**：淡入延迟写死 `700ms`，而总时长可以设到 `600ms`，动画在提示淡入之前就结束了；现在延迟 =「总时长的 30%，上限 700ms」。该字段同时改名「动画内显示文字」、允许留空（留空＝不渲染文字节点），并与「可跳过」解耦（见 §10-⑬） |
+| 代码规模 | `lib/index.js` 899 行（Host 半）、`src/client.template.js` 2093 行（Client 半源码）、`lib/client.js` 251712 字节（生成物）；`tools/tests/*.mjs` 共 601 行 |
 | 仓库 | https://github.com/Heidashuai-X/dsh-recharge-animation |
 | 已发布 | GitHub tag 与 Release 有 `v0.1.0`、`v0.2.0`（Release 挂 0.1.0 / 0.2.0 的 tgz 资产） |
 | npm 状态 | npm 上仍是 **0.1.0**；0.2.0 曾被 2FA 拦下，用户随后决定**不再发布 npm**，桌面 profile 改为 link 本地目录 |
@@ -250,7 +251,7 @@ RechargeButton.onClick
 - **恢复默认** → 恢复 `DEFAULT_CONFIG`（**保留已导入的素材**），仍需点保存才落盘
 - **保存** → `apiSave(draft)`，成功提示「已保存」，失败显示 Host 的错误原文
 
-分组与顺序：`全局静音` → `图标`（选择文件 / URL 导入 / 拖入热区 / 缩略图网格，点选＝设为当前图标，× 删除）→ `音效`（三槽位各两行：下拉 + 音量 + 试听，另有「导入音频」与拖入热区）→ `文案`（按钮名 / 跳过提示，`maxLength` 取 Host 下发的 `labelMax`）→ `动画参数`（总时长 / 最短时长 / 顶部偏移 / 进度模式 / 可跳过 / 结束后打开充值页）→ `预设`（chip 点击立即 `usePreset`，另有另存为 / 重命名 / 删除）→ `资源管理`（全部素材：预览 / 类型 / 名称 / 体积 / 删除，标题显示「N 项 · 总体积」）。
+分组与顺序：`全局静音` → `图标`（选择文件 / URL 导入 / 拖入热区 / 缩略图网格，点选＝设为当前图标，× 删除）→ `音效`（三槽位各两行：下拉 + 音量 + 试听，另有「导入音频」与拖入热区）→ `文案`（按钮名 / 动画内显示文字，`maxLength` 取 Host 下发的 `labelMax`；该栏留空则动画里不渲染文字节点）→ `动画参数`（总时长 / 最短时长 / 顶部偏移 / 进度模式 / 可跳过 / 结束后打开充值页）→ `预设`（chip 点击立即 `usePreset`，另有另存为 / 重命名 / 删除）→ `资源管理`（全部素材：预览 / 类型 / 名称 / 体积 / 删除，标题显示「N 项 · 总体积」）。
 
 拖拽：`onDragOver/onDragLeave/onDrop` 都 `preventDefault + stopPropagation`，且**只在面板打开时接管**，避免抢 DSH 聊天输入框的文件拖放。拖入文本时若像 `http(s)` 链接则走 URL 导入，否则报错。
 
@@ -387,7 +388,7 @@ node "tools\tests\shot.mjs" "file:///D:/下载/heidashuai/dsh-recharge-animation
 
 ### 7.3 Host 半冒烟测试
 
-- `tools/tests/host-smoke.mjs`（357 行）：起真 `node:http` 服务器 + mock `webServer`，`DSH_HOME` 指向临时目录，**19 项断言**覆盖三条路由（默认配置、上传真 PNG 并核对字节、未知 id 404、文本冒充图片 400、超限被拒、非法 JSON 400、超长 body 400 且原因可读、PUT 夹紧数值、PUT 不能凭空加素材、两次并发保存都落地且不留 `.tmp`、302 重定向拉图、拉 HTML 报错带 Content-Type、`file://` 被拒、DELETE 清引用、重新 import 后数据仍在、dispose 后路由清空、注册被拒时写 warning）。
+- `tools/tests/host-smoke.mjs`（421 行）：起真 `node:http` 服务器 + mock `webServer`，`DSH_HOME` 指向临时目录，**20 项断言**覆盖三条路由（默认配置、上传真 PNG 并核对字节、未知 id 404、文本冒充图片 400、超限被拒、非法 JSON 400、超长 body 400 且原因可读、PUT 夹紧数值、PUT 不能凭空加素材、两次并发保存都落地且不留 `.tmp`、302 重定向拉图、拉 HTML 报错带 Content-Type、`file://` 被拒、DELETE 清引用、重新 import 后数据仍在、dispose 后路由清空、注册被拒时写 warning、动画内文字可清空保存）。
 - `tools/tests/url-smoke.mjs`（95 行）：从**已安装**的包里 import，打真网络验证 URL 导入（含 `unpkg` 成功样例与本地 fixture）。
 - 跑法：`npm test`（= `npm run test:host`）、`npm run test:url`；两者在 0.2.1 已纳入 git，是当前唯一的回归网。旧副本仍留在 `..\.backup\`（工作区，未纳入 git）。
 
@@ -452,8 +453,8 @@ node "tools\tests\shot.mjs" "file:///D:/下载/heidashuai/dsh-recharge-animation
 **① Host 读 body 超限时不要 `req.destroy()`。**
 初版在超限时立刻 destroy socket，客户端拿到的是 `fetch failed / ECONNRESET` 而不是 `413`。现在的写法是：超限后继续 drain 丢弃，到 `'end'` 才 reject（`lib/index.js:474`）。改 `readBody` 时别退回去。
 
-**② `writeJsonAtomic` 的临时文件名是固定的。**
-`const temp = file + '.tmp'`（`lib/index.js:261`）。两个并发保存理论上会互相踩。目前面板是唯一的写入方、又是串行的，所以没暴露。要修就换成 `config.json.<pid>-<rand>.tmp`。
+**② `writeJsonAtomic` 的临时文件名原本是固定的（0.2.1 已修）。**
+旧写法 `const temp = file + '.tmp'`：两个并发保存会互踩同一个临时名，最坏写出被截断的配置。0.2.1 起临时名带上 pid 与随机后缀（`lib/index.js:273`），写失败时 unlink 掉临时文件再抛。测试里有一条「两次并发保存都落地且不留 `.tmp`」盯着这里。
 
 **③ 路由注册失败曾经是静默的（0.2.1 已修，但约束仍在）。**
 旧写法是 `register()` 里 `catch { }`：如果路由被别的安装或别的插件占住，插件会**能加载但接口 404**，日志里什么都没有。0.2.1 起每条路由独立注册、失败写一条 `[recharge-animation] 路由注册失败 <path>：<原因>` 的 warning（`warn()` 在 `lib/index.js`），但"注册失败"本身依旧不会让插件加载失败——排查接口 404 仍要去看日志或手动 `curl http://127.0.0.1:<port>/recharge-animation/config`。
@@ -484,6 +485,9 @@ node "tools\tests\shot.mjs" "file:///D:/下载/heidashuai/dsh-recharge-animation
 **⑫ 权限与代理。**
 本机所有涉及 `C:\Users\heida\.dsh` 或公网的命令都需要完整访问权限；沙箱内 `git credential fill`（GCM 报 Win32 error 5）、`ls-remote`（`SEC_E_NO_CREDENTIALS`）、无头 Edge（crashpad）、`curl`（`CRYPT_E_NO_REVOCATION_CHECK`）都会失败。IE 代理设置为空（`ProxyEnable=0`），环境变量里也没有 `HTTP(S)_PROXY`。
 
+**⑬ 动画里那行文字的淡入延迟曾经写死 700ms（0.2.2 已修）。**
+`.dra-hint` 原本是 CSS 里的 `transition: opacity .4s ease .7s`，而「总时长」可以设到 600ms（最短 200ms）：动画在提示开始淡入之前就 `dra-end` 并卸载了，于是**用户填的「跳过提示」文字一次都不会出现**（默认 0.6s 时长下 100% 复现）。0.2.2 起改为渲染时写 `style.transitionDelay`，「延迟 = min(700, 总时长 × 0.3)」，帧循环到 30% 时才加 `dra-show`。同一改动把该字段改名「动画内显示文字」、允许留空（留空时 `hint` 为 null、整块不渲染，只剩图标 + 进度条），并**与「可跳过」解耦**：以前文字只在 `skippable` 为真时显示，判定还写成 `previous.labels.skipHint ||`（把「用户清空」和「字段缺失」混为一谈，清空后又回退成默认文案）；现在文字只取决于文案本身是否为空，`skippable` 只管「点击跳过」这个行为。
+
 ---
 
 ## 11. 待优化清单（按建议顺序）
@@ -491,21 +495,22 @@ node "tools\tests\shot.mjs" "file:///D:/下载/heidashuai/dsh-recharge-animation
 1. ~~**修 `wantsTopUp` 初值**（§10-④）~~ —— **0.2.1 已修**：死变量删除，按钮改为读配置。
 2. ~~**给 URL 导入加网络诊断**~~ —— **0.2.1 已做**：`describeFetchError()` 把 `fetch` 的 `cause` 归一成超时 / 连接被重置 / DNS 失败 / 证书错误 / 地址本身不合法（`bad port`），客户端再叠一层「超时 vs 连不上」的区分。注意 `http://127.0.0.1:1` 这类端口会被 undici 判成 `bad port`（根本没开 socket），要测"连接被拒"请用高位端口（测试里统一用 `65500`）。
 3. ~~**`preview.html` 的 React 依赖**~~ —— **0.2.1 已做**：页面末尾的加载器按「本地 `vendor/` → unpkg → jsDelivr」逐级尝试，每级带超时（2s / 8s / 8s），全部失败时在底栏写明原因并给「重试」按钮；主逻辑改挂在 `window.__bootPreview__`，React 就绪后才启动，所以不再有「静默等十几秒」。想彻底离线就把两个 React UMD 文件放进 `vendor/`（该目录不在 `files` 白名单里，可选）。
-4. **并发安全**（§10-②）与**注册失败可观测**（§10-③）—— 注册失败已修（warning 日志）；`writeJsonAtomic` 的固定临时名仍在，0.2.1 只加了 JSDoc 说明、没改逻辑。**（半完成）**
-5. ~~**回归测试入库**~~ —— **0.2.1 已做**：迁到 `tools/tests/`，加了 `test` / `test:host` / `test:url` / `shot` 脚本，断言从 15 项扩到 19 项。
+4. ~~**并发安全**（§10-②）与**注册失败可观测**（§10-③）~~ —— **0.2.1 已做**：路由注册失败改为 warning 日志；`writeJsonAtomic` 的临时名改成 `file.<pid>-<random>.tmp`（`lib/index.js:273`），并发保存不再互踩，写失败时 unlink 清理临时文件。（2026-10-13 勘误：本行原写「固定临时名仍在」，与代码不符。）
+5. ~~**回归测试入库**~~ —— **0.2.1 已做**：迁到 `tools/tests/`，加了 `test` / `test:host` / `test:url` / `shot` 脚本，断言从 15 项扩到 19 项；**0.2.2 又加到 20 项**（新增「动画内文字可以清空保存」）。
 6. **`prefers-reduced-motion`**：动画目前无降级；可跳过动画、直接 reveal。**（未做）**
 7. **i18n**：面板与错误文案目前全是中文硬编码（Host 半的错误文案会被客户端原样显示，所以两半要一起改）。**（未做）**
 8. **抽公共内核**：与 `dsh-startup-animation` 有不少同构代码（毛玻璃舞台、进度信号、座位注册、平台视图），可以考虑抽一个共享的 runtime 包。**（未做）**
 9. **`usage` 页**：宿主的桥支持 `page: "usage"`，可以做成"用量"入口。**（未做）**
-10. ~~**CI 自动发布**~~ —— **0.2.1 已做**：新增 `.github/workflows/ci.yml`。`verify` 作业（push / PR）跑 `python3 tools/prepare.py` 并用 `git diff --quiet -- lib/client.js` 卡住「模板改了但没重新生成」，再跑 `npm test`（`npm run test:url` 需要网络，`continue-on-error`）；`release` 作业只在 `v*` tag 上跑，先比对 tag 与 `package.json` 版本，再 `npm pack`，已存在的 Release 用 `gh release upload --clobber` 覆盖、不存在则 `gh release create --generate-notes`。注意 Actions 里的 `python3` 是 runner 自带，仓库不需要额外配置。
+10. ~~**CI 自动发布**~~ —— **0.2.1 已做**：新增 `.github/workflows/ci.yml`。`verify` 作业（push / PR）跑 `python3 tools/prepare.py` 并用 `git diff --quiet -- lib/client.js` 卡住「模板改了但没重新生成」，装 `@deepseek-ai/schemastery`（宿主的可选依赖，装上 `Config` 断言才走真检查），再跑 `npm test`（`npm run test:url` 需要网络，`continue-on-error`）；`release` 作业只在 `v*` tag 上跑，先比对 tag 与 `package.json` 版本，再 `npm pack`；Release 不存在就 `gh release create --generate-notes`，**已存在且已有同名资产时保留现有字节流不覆盖**（避免同一个 tag 被手工发布与 CI 各打包一份、sha 不一致），缺该资产才 `gh release upload`。注意 Actions 里的 `python3` 是 runner 自带，仓库不需要额外配置。
+11. ~~**动画里那行文字不显示**~~ —— **0.2.2 已修**（2026-10-13）：详见 §10-⑬。
 
 ---
 
 ## 12. 接手检查表
 
-- [ ] 读 `README.md`（讲的是对外行为）→ 再读 `lib/index.js`（817 行，全是业务规则）→ 最后读 `src/client.template.js` 的 §4.2/§4.4/§4.5 三块。
+- [ ] 读 `README.md`（讲的是对外行为）→ 再读 `lib/index.js`（899 行，全是业务规则）→ 最后读 `src/client.template.js` 的 §4.2/§4.4/§4.5 三块。
 - [ ] 确认本机 profile 仍是 link：`Select-String -Path "$env:USERPROFILE\.dsh\profiles\desktop\package.json" -Pattern recharge`，应看到 `link:D:/下载/heidashuai/dsh-recharge-animation`。
-- [ ] 跑一遍 `npm test`，确认 19 项还是全绿（改 Host 半前后各跑一次）；动了 `import-url` 再跑 `npm run test:url`。
+- [ ] 跑一遍 `npm test`，确认 20 项还是全绿（改 Host 半前后各跑一次）；动了 `import-url` 再跑 `npm run test:url`。
 - [ ] 改客户端后：`python tools/prepare.py` → `npm run shot` 截图核对 → 重启 DSH 真机确认。
 - [ ] 提交前把 `CHANGELOG.md` 与 `package.json` 的版本号一起改。
 
@@ -513,7 +518,7 @@ node "tools\tests\shot.mjs" "file:///D:/下载/heidashuai/dsh-recharge-animation
 
 ## 13. 本文件的状态
 
-本文件是新增的，**不在 `package.json` 的 `files` 白名单里**（因此不会进 npm 包与 tgz）。0.2.1 这一轮（2026-10-13）更新过 §0 版本表、§7.1/§7.2/§7.3 工具箱说明、§10-③/④ 状态、§11 清单（第 1/2/3/5/10 项已做）与 §9.1 参考数据；其余小节仍是 0.2.0 时期的描述。若要入库：
+本文件是新增的，**不在 `package.json` 的 `files` 白名单里**（因此不会进 npm 包与 tgz）。0.2.1 这一轮（2026-10-13）更新过 §0 版本表、§7.1/§7.2/§7.3 工具箱说明、§10-③/④ 状态、§11 清单（第 1/2/3/5/10 项已做）与 §9.1 参考数据；**0.2.2（同日）**又更新了 §0 版本表与代码规模、§7.3 断言数、§10-④ 与新增 §10-⑬、§11 全表（含勘误第 4 项）、§12 检查表、§9.1 参考数据；其余小节仍是 0.2.0 时期的描述。若要入库：
 
 ```powershell
 & "D:\Git\cmd\git.exe" -C dsh-recharge-animation add HANDOVER.md

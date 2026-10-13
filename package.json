@@ -1,6 +1,6 @@
 {
 	"name": "dsh-recharge-animation",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "DSH 充值启动动画：侧边栏充值按钮 → 毛玻璃开场动画 → 动画结束用内置平台视图打开官方充值页；右键按钮可打开设置面板换图标、音效与文案。",
 	"license": "SEE LICENSE IN LICENSE",
 	"author": "Heidashuai-X",
