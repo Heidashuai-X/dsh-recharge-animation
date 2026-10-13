@@ -13,7 +13,7 @@
 | 当前版本 | `0.2.2`（`package.json:3`） |
 | 这是什么 | DSH 侧边栏「充值」按钮 + 满屏毛玻璃开场动画 + 动画结束用宿主原生视图打开官方充值页；**0.2.0 新增右键唤出的配置面板**（图标 / 三槽位音效 / 文案 / 行为参数 / 素材管理 / 多套预设 / 全局静音） |
 | 0.2.1 修了什么 | 路由注册失败改成 warning 日志（原为静默 `catch {}`）、`readBody`/`readJson` 的 400 语义、控制面请求全部加超时（开场 1.5s / 保存 20s / 上传 60s / 删除 10s / 导入 30s）、URL 导入失败原因归一（`describeFetchError`）、回归测试从 `.backup/` 迁进 `tools/tests/`（详见 §7.3 与 `CHANGELOG.md` 的 0.2.1 节） |
-| 0.2.2 修了什么 | **动画里那行文字一次都没显示过**：淡入延迟写死 `700ms`，而总时长可以设到 `600ms`，动画在提示淡入之前就结束了；现在延迟 =「总时长的 30%，上限 700ms」。该字段同时改名「动画内显示文字」、允许留空（留空＝不渲染文字节点），并与「可跳过」解耦（见 §10-⑬） |
+| 0.2.2 修了什么 | **动画里那行文字一次都没显示过**：淡入延迟写死 `700ms`，而总时长可以设到 `600ms`，动画在提示淡入之前就结束了；现在延迟 =「总时长的 30%，上限 700ms、下限 140ms」。该字段同时改名「动画内显示文字」、允许留空（留空＝不渲染文字节点），并与「可跳过」解耦（见 §10-⑬） |
 | 代码规模 | `lib/index.js` 899 行（Host 半）、`src/client.template.js` 2093 行（Client 半源码）、`lib/client.js` 251712 字节（生成物）；`tools/tests/*.mjs` 共 601 行 |
 | 仓库 | https://github.com/Heidashuai-X/dsh-recharge-animation |
 | 已发布 | GitHub tag 与 Release 有 `v0.1.0`、`v0.2.0`（Release 挂 0.1.0 / 0.2.0 的 tgz 资产） |
@@ -437,7 +437,8 @@ node "tools\tests\shot.mjs" "file:///D:/下载/heidashuai/dsh-recharge-animation
 - Release 通过 GitHub API 创建（`POST /repos/Heidashuai-X/dsh-recharge-animation/releases`），资产用 `uploads.github.com/.../assets?name=…` 上传。
 - 这批 API 调用在本机的可行姿势：完整权限 + `curl --ssl-no-revoke`（本机做不了证书吊销检查，会报 `CRYPT_E_NO_REVOCATION_CHECK`）。
 - 参考数据：`v0.2.0` → commit `6b953d4`，tag 对象 `eb8b1df`；Release 资产 `dsh-recharge-animation-0.2.0.tgz` 459407 字节，sha256 `bddd26ac12f065faa79969d2d951c95f1118a4f998d6c7ae77a728834928c735`。
-- 0.2.1（2026-10-13，本地已 `npm pack`，**尚未 commit / tag / push**）：产物 `dsh-recharge-animation-0.2.1.tgz` 469816 字节，sha256 `9198effd43ebfac1eb0fbeee612f5b379af3c65df8612509d7949d9d0d5117f3`，17 个文件（含 `tools/tests/*.mjs`；`HANDOVER.md` 按设计不进包）。
+- `v0.2.1`（2026-10-13）：commit `1da16ab`（CI 断言修复 `9010a62`），tag 对象 `95a92e2`，Release id `411553909`；资产 `dsh-recharge-animation-0.2.1.tgz` 471821 字节，sha256 `E5A8A782D615F9D95F00D3159370A6DAF9DFA5BC826E292A0E43FF0C80E2D1CB`，17 个文件。（同一版本本地曾先 pack 出 469816 字节的副本，发布前已重新打包，以 471821 字节的资产为准。）
+- `v0.2.2`（2026-10-13）：commit `da5007a`，tag 对象 `5de79ee5`，**Release 由 CI 的 `release` 作业自动创建**（id `411574004`，`gh release create <tag> <tgz> --generate-notes`）；资产 `dsh-recharge-animation-0.2.2.tgz` 473601 字节，shasum `e7a863cb1a21c969cab577ad85fee24b8a12a1c1`，sha256 `B81A3072168CFD72F1559DBEBC5C2F8CC8927FF4E53121D15562A95B6E9D39BB`（已把 CI 上传的资产下载回来比对，与该 sha 逐字节一致——CI 的 `npm pack` 与本地可复现地打出同一个包），17 个文件。**注意**：推 tag 会触发 CI 重新 `npm pack` 并由 CI 上传资产——本地 tgz 与 CI 资产字节数相同，但如果手工先建了 Release，CI 不会覆盖已有同名资产（见 §11-10 的说明），所以想统一 sha 就不要手工上传。
 
 ### 9.2 npm（已暂停）
 
@@ -486,7 +487,7 @@ node "tools\tests\shot.mjs" "file:///D:/下载/heidashuai/dsh-recharge-animation
 本机所有涉及 `C:\Users\heida\.dsh` 或公网的命令都需要完整访问权限；沙箱内 `git credential fill`（GCM 报 Win32 error 5）、`ls-remote`（`SEC_E_NO_CREDENTIALS`）、无头 Edge（crashpad）、`curl`（`CRYPT_E_NO_REVOCATION_CHECK`）都会失败。IE 代理设置为空（`ProxyEnable=0`），环境变量里也没有 `HTTP(S)_PROXY`。
 
 **⑬ 动画里那行文字的淡入延迟曾经写死 700ms（0.2.2 已修）。**
-`.dra-hint` 原本是 CSS 里的 `transition: opacity .4s ease .7s`，而「总时长」可以设到 600ms（最短 200ms）：动画在提示开始淡入之前就 `dra-end` 并卸载了，于是**用户填的「跳过提示」文字一次都不会出现**（默认 0.6s 时长下 100% 复现）。0.2.2 起改为渲染时写 `style.transitionDelay`，「延迟 = min(700, 总时长 × 0.3)」，帧循环到 30% 时才加 `dra-show`。同一改动把该字段改名「动画内显示文字」、允许留空（留空时 `hint` 为 null、整块不渲染，只剩图标 + 进度条），并**与「可跳过」解耦**：以前文字只在 `skippable` 为真时显示，判定还写成 `previous.labels.skipHint ||`（把「用户清空」和「字段缺失」混为一谈，清空后又回退成默认文案）；现在文字只取决于文案本身是否为空，`skippable` 只管「点击跳过」这个行为。
+`.dra-hint` 原本是 CSS 里的 `transition: opacity .4s ease .7s`，而「总时长」可以设到 600ms（最短 200ms）：动画在提示开始淡入之前就 `dra-end` 并卸载了，于是**用户填的「跳过提示」文字一次都不会出现**（默认 0.6s 时长下 100% 复现）。0.2.2 起改为渲染时写 `style.transitionDelay`，「延迟 = min(700, max(140, 总时长 × 0.3))」，帧循环到 30% 时才加 `dra-show`。同一改动把该字段改名「动画内显示文字」、允许留空（留空时 `hint` 为 null、整块不渲染，只剩图标 + 进度条），并**与「可跳过」解耦**：以前文字只在 `skippable` 为真时显示，判定还写成 `previous.labels.skipHint ||`（把「用户清空」和「字段缺失」混为一谈，清空后又回退成默认文案）；现在文字只取决于文案本身是否为空，`skippable` 只管「点击跳过」这个行为。
 
 ---
 
