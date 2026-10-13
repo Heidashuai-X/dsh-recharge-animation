@@ -2,6 +2,28 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.1] - 2026-10-13
+
+维护版：把 0.2.0 留下的坑收干净 —— 桌面端路由真的挂上、错误提示能看懂、卡住的请求不再拖住面板，并把回归测试收进仓库。
+
+### Fixed
+
+- **路由注册失败不再被吞掉**：`webServer.register` 在桌面 profile 下可能抛异常。现在三条路由逐条注册，失败时写一条 warning（带路径与原因），不再一声不吭地让面板永远拿不到配置。
+- **所有控制面请求都有超时**：开场读配置 1.5 秒、保存 20 秒、上传 60 秒、删除 10 秒、URL 导入 30 秒（`requestJson` 默认 10 秒）。此前没有超时，Host 半一旦卡住，面板就只会一直转圈。
+- **区分「超时」与「连不上」**：前者提示「插件后台响应超时（Host 未响应）」，后者提示「无法连接插件后台（Host 未响应）」。
+- **保存 / 删除 / 上传失败时给出真正的原因**：优先显示 Host 半响应体里的 `error` 文案，没有时附上 `（HTTP <状态码>）`，不再只有一句「保存失败」。
+- **调用方的错误算调用方的**：请求体不是合法 JSON、超出体积上限、字段类型不对，统一回 `400` 并说明原因；只有真正的服务端故障才回 `500`。
+- **超长请求体先读完再拒绝**：避免浏览器拿到 fetch failed / ECONNRESET，而是读到可读的错误信息。
+- **URL 导入的失败原因可读**：把 `fetch` 的 `cause` 归一成超时 / 连接被重置 / DNS 解析失败 / 证书错误 / 地址本身不合法；超过 15 秒或重定向超过 5 次都会明确报出来。
+- 删掉浏览器半里的死变量 `wantsTopUp`。
+
+### Changed
+
+- 冒烟测试进仓库：`tools/tests/host-smoke.mjs`（Host 半 19 项：配置读写与夹紧、素材上下行与删除、非法 JSON、超长 body、并发保存、路由注册失败上报、模块重载、路由清理）与 `tools/tests/url-smoke.mjs`（`import-url` 的四道闸），另有 `tools/tests/shot.mjs`（预览页截图回归）。
+- `package.json` 新增 `test` / `test:host` / `test:url` / `shot` 脚本（`test` 等同 `test:host`）。
+- **预览页不再吊死在单一 CDN 上**：`preview.html` 的 React 现在依次尝试本地 `vendor/`（把两个 UMD 文件放进去即可完全离线）、unpkg、jsDelivr，每一级都带超时；全都不可用时说明原因并给出「重试」按钮 —— 此前断网只会永远停在「正在加载…」，冷启动 unpkg 也要十几秒且没有任何反馈。
+- **CI**：新增 `.github/workflows/ci.yml` —— push / PR 时跑 `prepare.py`、校验 `lib/client.js` 与 `src/client.template.js` 同步、跑 Host 冒烟测试（URL 导入那组要联网，非阻塞）；打 `v*` tag 时先校验 tag 与 `package.json` 版本一致，再 `npm pack` 并把 tgz 传上 GitHub Release。
+
 ## [0.2.0] - 2026-10-13
 
 设置面板：右键侧边栏的「充值」按钮打开，动画、图标、音效、文案都能在这里改。

@@ -1,0 +1,86 @@
+name: ci
+
+# Three things used to be manual and easy to forget: regenerating lib/client.js
+# from src/client.template.js, running the Host smoke tests, and attaching the
+# packed tarball to a GitHub Release. The first two run on every push/PR; the
+# release only runs for a v* tag, and it refuses a tag that disagrees with
+# package.json.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: tests + bundle sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Regenerate the client bundle
+        run: python3 tools/prepare.py
+
+      - name: lib/client.js must match src/client.template.js
+        run: |
+          if ! git diff --quiet -- lib/client.js; then
+            echo "::error::lib/client.js 与 src/client.template.js 不同步 —— 本地跑 python3 tools/prepare.py 后一起提交。"
+            git diff --stat -- lib/client.js
+            exit 1
+          fi
+
+      - name: Host smoke tests
+        run: npm test
+
+      - name: URL import checks (needs the network; non-blocking)
+        continue-on-error: true
+        run: npm run test:url
+
+  release:
+    name: release asset
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: The tag must match package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME 与 package.json 的 $version 不一致。"
+            exit 1
+          fi
+
+      - name: Pack
+        run: npm pack
+
+      - name: Publish the release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          asset="$(ls dsh-recharge-animation-*.tgz | head -n 1)"
+          echo "asset: $asset ($(stat -c%s "$asset") bytes)"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$asset" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$asset" \
+              --title "$GITHUB_REF_NAME" --generate-notes
+          fi

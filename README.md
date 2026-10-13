@@ -112,7 +112,7 @@ $DSH_HOME/recharge-animation/
 | `DELETE` | `/recharge-animation/assets?kind=&id=` | 删素材，同时清掉预设与图标里对它的引用。 |
 | `POST` | `/recharge-animation/import-url` | 由 Host 下载远端文件并入库。 |
 
-浏览器半读不到配置时使用内置默认值，**永远不会因为路由不可达而卡住开场**。
+浏览器半读不到配置时使用内置默认值，**永远不会因为路由不可达而卡住开场**（开场读配置只等 1.5 秒；保存 20 秒、上传 60 秒、删除 10 秒、URL 导入 30 秒，超时后给一句可读的错误）。
 
 ## 包结构
 
@@ -126,9 +126,11 @@ dsh-recharge-animation/
 ├── src/client.template.js   # 浏览器半的可读源码（入口按钮、动画、设置面板）
 ├── tools/
 │   ├── prepare.py           # 把 Logo 内联成 data URI，生成 lib/client.js
-│   └── build-assets.py      # 从 assets/logo.png 派生 384px 图标
+│   ├── build-assets.py      # 从 assets/logo.png 派生 384px 图标
+│   └── tests/               # 回归测试（host-smoke / url-smoke / shot）
 ├── assets/                  # logo.png（母版）+ logo-384.png + icon.png
 ├── preview.html             # 脱离 DSH 的独立预览页（自带假 Host，面板也能试）
+├── .github/workflows/ci.yml # CI：测试 + 产物同步校验 + tag 自动发 Release
 └── README.md
 ```
 
@@ -228,7 +230,27 @@ dsh web --profile web --port 19399 --no-open
 
 `dsh: warning: N entry did not activate` 的下一行会给出失败原因与行号。
 
+**面板能开，但保存 / 上传没反应**：先看 DSH 控制台里有没有 `[recharge-animation] 路由注册失败 <path>：<原因>` 的 warning。桌面 profile 下 `webServer.register` 可能抛异常（0.2.1 起会明确写出来）；路由没挂上时，面板里的请求会以「无法连接插件后台（Host 未响应）」收场。
+
+**改了 `src/client.template.js` 却没生效**：浏览器半是生成产物，必须 `python tools/prepare.py` 重新生成 `lib/client.js`，然后重启 DSH。
+
+**保存卡住或提示超时**：Host 半没在超时时间内应答。0.2.1 起各类请求都有上限（开场 1.5s、保存 20s、上传 60s、删除 10s、URL 导入 30s），超时会直接说明是超时而不是连接问题。
+
+**预览页一直停在「正在加载 React」**：`preview.html` 需要 React 18 的 UMD 文件，依次从本地 `vendor/`、unpkg、jsDelivr 取。断网或 CDN 不可达时它会逐个源尝试，最后在底栏说明原因并给出「重试」；想彻底离线就把 `react.production.min.js` 与 `react-dom.production.min.js` 放进仓库的 `vendor/` 目录。
+
 ## 制作
+
+回归测试（Node 18+，不依赖 DSH 本体）：
+
+```bash
+npm test          # Host 半 19 项冒烟：配置、素材、URL 导入、并发保存、错误语义
+npm run test:url  # import-url 的四道闸（scheme / host / 类型 / 体积）
+npm run shot      # 用无头 Edge 给 preview.html 截图（Windows，需本机有 Edge）
+```
+
+CI（`.github/workflows/ci.yml`）跑的是同一批命令，外加一条「`lib/client.js` 必须与 `src/client.template.js` 同步」的检查；打 `v*` tag 时会校验 tag 与 `package.json` 一致，然后 `npm pack` 并把 tgz 传上 GitHub Release，不用再手工上传。
+
+`preview.html` 的 React 按「本地 `vendor/` → unpkg → jsDelivr」顺序加载，每一级都有超时；把两个 UMD 文件放进 `vendor/` 就能完全离线跑预览页，全部失败时页面会说明原因并给出「重试」。
 
 - **作者**：[Heidashuai-X](https://github.com/Heidashuai-X)
 - **AI 协作**：本项目由作者与 **DSH（DeepSeek Harness）里的 AI agent** 协作完成。座位勘察（读 DSH 与 Electron 打包产物，定位 `shell.overlay`、`sidebar.footer.action` 与原生平台视图协议）、Host 半与浏览器半代码、毛玻璃动画与样式，以及本 README / `CHANGELOG.md` / `PROVENANCE.md`，都在与该 agent 的会话中共同产出。软件按 [`LICENSE`](LICENSE) 里的开放声明提供（**不适用 MIT**），最终成品与后续维护由作者负责。

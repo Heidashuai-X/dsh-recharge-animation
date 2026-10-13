@@ -95,12 +95,13 @@
 		</main>
 	</div>
 	<div id="seat-overlay"></div>
-	<div class="note" id="boot-note">正在加载 React 与插件…</div>
+	<div class="note" id="boot-note">正在准备预览…</div>
 
-	<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-	<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 	<script>
-		(function () {
+		// Defined here, started by the loader in the next <script> once React is
+		// ready. Keeping the boot in one named function is what lets the loader
+		// retry a different CDN without re-parsing this file.
+		window.__bootPreview__ = function () {
 			var footer = document.getElementById("seat-footer");
 			var overlay = document.getElementById("seat-overlay");
 			var main = document.getElementById("mock-main");
@@ -304,8 +305,9 @@
 			}
 
 			if (!window.React || !window.ReactDOM) {
-				note.textContent = "React 未能从 unpkg 载入（离线？），预览不可用。";
-				return;
+				// The loader below owns React; reaching this line means it never
+				// became ready — fail loudly instead of rendering a dead page.
+				throw new Error("React 尚未就绪，预览无法启动");
 			}
 
 			window.__ModuleLoader__ = {
@@ -348,8 +350,84 @@
 					note.textContent = "插件已加载 —— 点侧边栏底部的「充值」看动画，右键它打开设置面板（预览里的素材只在本次会话有效）。";
 				}
 			};
+		};
+	</script>
+
+	<script>
+		/* --- React 加载器 ----------------------------------------------------
+		   The panel needs React 18 (UMD). One hard-coded <script src> to a
+		   single CDN is a single point of failure: offline the preview just sat
+		   on "正在加载…" forever, and a cold unpkg fetch could take ten-plus
+		   seconds with no feedback. So: try ./vendor/ first (drop the two UMD
+		   files there and the preview runs fully offline), then unpkg, then
+		   jsDelivr — each raced against a timer — and offer a retry when every
+		   source is gone.
+		--------------------------------------------------------------------- */
+		(function () {
+			var note = document.getElementById("boot-note");
+			var SOURCES = [
+				{ name: "本地 vendor/", react: "./vendor/react.production.min.js", dom: "./vendor/react-dom.production.min.js", timeout: 2000 },
+				{ name: "unpkg", react: "https://unpkg.com/react@18/umd/react.production.min.js", dom: "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js", timeout: 8000 },
+				{ name: "jsDelivr", react: "https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js", dom: "https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js", timeout: 8000 }
+			];
+
+			/** A <script> that neither loads nor errors (an offline hang) fires no
+			 *  event at all, so each attempt is raced against a timer. */
+			function loadScript(url, timeout) {
+				return new Promise(function (resolve, reject) {
+					var element = document.createElement("script");
+					var settled = false;
+					var timer = setTimeout(function () {
+						if (settled) return;
+						settled = true;
+						element.remove();
+						reject(new Error("超时 " + Math.round(timeout / 1000) + "s"));
+					}, timeout);
+					function settle(error) {
+						if (settled) return;
+						settled = true;
+						clearTimeout(timer);
+						if (error) { element.remove(); reject(error); } else { resolve(element); }
+					}
+					element.src = url;
+					element.onload = function () { settle(null); };
+					element.onerror = function () { settle(new Error("加载失败")); };
+					document.head.appendChild(element);
+				});
+			}
+
+			function attempt(index) {
+				if (index >= SOURCES.length) return Promise.reject(new Error("所有 React 源都不可用"));
+				var source = SOURCES[index];
+				note.textContent = "正在加载 React（" + source.name + "）…";
+				return loadScript(source.react, source.timeout)
+					.then(function () { return loadScript(source.dom, source.timeout); })
+					.catch(function (error) {
+						note.textContent = "React 源「" + source.name + "」不可用（" + error.message + "），换下一个…";
+						return attempt(index + 1);
+					});
+			}
+
+			function giveUp(error) {
+				note.textContent = "React 没能加载（本地 vendor/、unpkg、jsDelivr 都失败：" + error.message + "）。预览页需要 React 18 的 UMD 文件，检查网络后 ";
+				var retry = document.createElement("button");
+				retry.type = "button";
+				retry.textContent = "重试";
+				retry.style.cssText = "margin-left:2px;padding:2px 10px;border:1px solid rgba(127,127,127,.45);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer";
+				retry.onclick = function () { location.reload(); };
+				note.appendChild(retry);
+				note.appendChild(document.createTextNode("。"));
+			}
+
+			var ready = window.React && window.ReactDOM ? Promise.resolve() : attempt(0);
+			ready.then(function () {
+				window.__bootPreview__();
+				note.textContent = "正在加载插件…";
+				return loadScript("./lib/client.js", 15000).catch(function (error) {
+					note.textContent = "插件脚本 lib/client.js 加载失败（" + error.message + "）：先在仓库根目录跑 python tools/prepare.py。";
+				});
+			}).catch(giveUp);
 		})();
 	</script>
-	<script src="./lib/client.js"></script>
 </body>
 </html>
